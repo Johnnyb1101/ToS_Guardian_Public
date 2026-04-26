@@ -36,6 +36,10 @@ Memory → Fetcher → Link Follower → Analyzer → Evaluator → UI
 6. Enter your API key and select your AI provider
 7. Visit any site with an agree button and click it
 
+> **Note:** TOS Guardian requires your own API key to function. 
+> See Supported AI Providers below for where to get one. 
+> Anthropic offers free trial credits to new accounts.
+
 ## Supported AI Providers
 
 TOS Guardian supports three AI providers. You supply your own API key.
