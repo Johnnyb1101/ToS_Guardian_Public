@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        width: 340px;
+        font-family: 'DM Sans', system-ui, sans-serif;
+        background: #ffffff;
+        color: #111111;
+        font-size: 13px;
+      }
+
+      .tg-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px 11px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .tg-shield {
+        width: 30px;
+        height: 30px;
+        background: #1a1aff;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .tg-shield-icon {
+        width: 14px;
+        height: 16px;
+        background: #ffffff;
+        clip-path: polygon(50% 0%, 100% 25%, 100% 70%, 50% 100%, 0% 70%, 0% 25%);
+      }
+
+      .tg-header-text { flex: 1; }
+
+      .tg-header-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #111;
+      }
+
+      .tg-header-domain {
+        font-size: 11px;
+        color: #aaa;
+        margin-top: 1px;
+      }
+
+      .tg-risk-pill {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 3px 9px;
+        border-radius: 20px;
+        border: 1px solid;
+        white-space: nowrap;
+        display: none;
+      }
+      .tg-risk-pill.visible { display: inline-block; }
+      .tg-risk-high   { background: #fff0f0; color: #c0392b; border-color: #f5c6c6; }
+      .tg-risk-medium { background: #fff8ee; color: #b7770d; border-color: #f5dfa0; }
+      .tg-risk-low    { background: #f0fff4; color: #1a7a3c; border-color: #b2dfc0; }
+
+      #loading {
+        padding: 32px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .tg-spinner {
+        width: 22px;
+        height: 22px;
+        border: 2px solid #ebebeb;
+        border-top-color: #1a1aff;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .tg-loading-label { font-size: 13px; color: #888; }
+      .tg-loading-sub   { font-size: 11px; color: #bbb; }
+
+      #summary { padding: 4px 0 8px; }
+
+      .tg-category {
+        padding: 11px 16px;
+        border-bottom: 1px solid #f5f5f5;
+      }
+
+      .tg-category-title {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #aaa;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      .tg-category-body {
+        font-size: 12px;
+        color: #333;
+        line-height: 1.6;
+      }
+
+      .tg-optout-links {
+        margin: 10px 16px;
+        padding: 10px 12px;
+        background: #f5fff8;
+        border: 1px solid #b2dfc0;
+        border-radius: 8px;
+      }
+
+      .tg-optout-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #1a7a3c;
+        margin-bottom: 6px;
+      }
+
+      .tg-optout-link {
+        display: block;
+        font-size: 11px;
+        color: #1a1aff;
+        text-decoration: none;
+        word-break: break-all;
+        margin-bottom: 3px;
+      }
+
+      .tg-optout-link:hover { text-decoration: underline; }
+
+      .tg-eval-warning {
+        margin: 8px 16px 0;
+        padding: 8px 12px;
+        background: #fff8ee;
+        border: 1px solid #f5dfa0;
+        border-radius: 8px;
+        color: #7a5000;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .tg-eval-badge {
+        margin: 8px 16px 4px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 500;
+        display: inline-block;
+      }
+
+      .tg-eval-strong   { background: #f0fff4; color: #1a7a3c; border: 1px solid #b2dfc0; }
+      .tg-eval-adequate { background: #fff8ee; color: #b7770d; border: 1px solid #f5dfa0; }
+      .tg-eval-weak     { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+    </style>
+  </head>
+  <body>
+    <div class="tg-header">
+      <div class="tg-shield"><div class="tg-shield-icon"></div></div>
+      <div class="tg-header-text">
+        <div class="tg-header-name">TOS Guardian</div>
+        <div class="tg-header-domain" id="tg-domain">Analyzing...</div>
+      </div>
+      <div class="tg-risk-pill" id="tg-risk-pill"></div>
+    </div>
+
+    <div id="loading">
+      <div class="tg-spinner"></div>
+      <div class="tg-loading-label">Reading the fine print...</div>
+      <div class="tg-loading-sub">Analyzing terms and privacy policy...</div>
+    </div>
+
+    <div id="summary"></div>
+
+    <script src="tosUtils.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

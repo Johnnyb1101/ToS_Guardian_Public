@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "TOS Guardian",
+  "options_page": "options.html",
+  "version": "1.0.0",
+  "description": "Intercepts agree buttons and analyzes Terms of Service and Privacy Policies with AI — so you know what you're agreeing to before you agree.",
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tos-guardian@johnnyb1101",
+      "strict_min_version": "109.0"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["tosUtils.js", "shadowDom.js", "content.js"]
+    }
+  ]
+}

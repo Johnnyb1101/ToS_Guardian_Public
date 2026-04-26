@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOS Guardian — Settings</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f5f5f7;
+      color: #111;
+      font-family: 'DM Sans', sans-serif;
+      padding: 40px;
+      min-width: 480px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .shield {
+      width: 34px; height: 34px;
+      background: #1a1aff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .shield-icon {
+      width: 16px; height: 18px;
+      background: #fff;
+      clip-path: polygon(50% 0%,100% 25%,100% 70%,50% 100%,0% 70%,0% 25%);
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      border: 1px solid #e8e8e8;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #999;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    select, input[type="password"], input[type="text"] {
+      width: 100%;
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      color: #111;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input:focus {
+      border-color: #1a1aff;
+    }
+
+    .ollama-note {
+      font-size: 12px;
+      color: #999;
+      margin-top: -12px;
+      margin-bottom: 16px;
+    }
+
+    .btn-save {
+      background: #1a1aff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-save:hover { background: #1414cc; }
+
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #2e7d32;
+      min-height: 20px;
+    }
+
+    .status.error { color: #c62828; }
+
+    #ollamaField { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="shield"><div class="shield-icon"></div></div>
+    <h1>TOS Guardian — Settings</h1>
+  </div>
+
+  <div class="section">
+    <div class="section-title">AI Provider</div>
+
+    <label for="providerSelect">Select Provider</label>
+    <select id="providerSelect">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT)</option>
+      <option value="ollama">Ollama (Local)</option>
+    </select>
+
+    <div id="anthropicField">
+      <label for="anthropicKey">Anthropic API Key</label>
+      <input type="password" id="anthropicKey" placeholder="sk-ant-..." />
+    </div>
+
+    <div id="openaiField" style="display:none;">
+      <label for="openaiKey">OpenAI API Key</label>
+      <input type="password" id="openaiKey" placeholder="sk-..." />
+    </div>
+
+    <div id="ollamaField">
+      <label for="ollamaUrl">Ollama Base URL</label>
+      <input type="text" id="ollamaUrl" placeholder="http://localhost:11434" />
+      <p class="ollama-note">No API key required. Ollama must be running locally.</p>
+    </div>
+
+    <button class="btn-save" id="saveBtn">Save Settings</button>
+    <div class="status" id="statusMsg"></div>
+  </div>
+ <script src="options.js"></script>
+
+</body>
+</html>
