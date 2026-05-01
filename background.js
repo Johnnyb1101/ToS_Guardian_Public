@@ -4,6 +4,7 @@ importScripts("siteDatabase.js");
 importScripts("tosUtils.js");
 importScripts("orchestrator.js");
 const browser = globalThis.browser || chrome;
+const PROXY_URL = "https://tos-guardian-proxy-production.up.railway.app";
 
 // How long before we re-analyze a site (15 days in milliseconds)
 const CACHE_EXPIRY_MS = 15 * 24 * 60 * 60 * 1000;
@@ -44,38 +45,45 @@ function hashString(str) {
 // Read a cached analysis from Supabase community cache
 async function readFromSupabase(domain) {
   try {
-    const response = await fetch(`https://tos-guardian-proxy-production.up.railway.app/read/${domain}`);
-    if (!response.ok) return null;
+    const response = await fetch(`${PROXY_URL}/read/${domain}`);
     const data = await response.json();
     if (data.result) {
-      console.log(`[Supabase] Community cache hit for ${domain}`);
-      return data.result;
+      console.log('[Supabase] Community cache hit for', domain);
+      const validatedLinks = (data.opt_out_links || []).filter(url => {
+        try {
+          return validateLinkFollowerUrl(url);
+        } catch {
+          return false;
+        }
+      });
+      return { summary: data.result, optOutLinks: validatedLinks };
     }
     return null;
   } catch (err) {
-    console.warn(`[Supabase] Read failed for ${domain}:`, err.message);
+    console.error('[Supabase] Read error:', err);
     return null;
   }
 }
 
 // Write an analysis result to Supabase community cache
-async function writeToSupabase(domain, summary, aiProvider) {
-  console.log(`[Supabase] Attempting write for ${domain}`);
+async function writeToSupabase(domain, summary, aiProvider, optOutLinks = []) {
   try {
-    const response = await fetch('https://tos-guardian-proxy-production.up.railway.app/write', {
+    const response = await fetch(`${PROXY_URL}/write`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        domain: domain,
+        domain,
         analysis_result: summary,
-        ai_provider: aiProvider || 'anthropic'
+        ai_provider: aiProvider,
+        opt_out_links: optOutLinks
       })
     });
-    if (response.ok) {
-      console.log(`[Supabase] Analysis written for ${domain}`);
+    const data = await response.json();
+    if (data.success) {
+      console.log('[Supabase] Analysis written for', domain);
     }
   } catch (err) {
-    console.warn(`[Supabase] Write failed for ${domain}:`, err.message);
+    console.error('[Supabase] Write error:', err);
   }
 }
 
@@ -94,13 +102,11 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
     cache[domain] = entry;
     browser.storage.local.set({ tosCache: cache }, () => {
       console.log(`[Memory] Saved analysis for ${domain}`);
-      writeToSupabase(domain, summary, 'anthropic');
+      writeToSupabase(domain, summary, 'anthropic', optOutLinks);
     });
   });
 }
 
-// Load a cached analysis for a domain
-// Returns object with summary and optional changed flag, or null if not found/expired
 function loadAnalysis(domain, callback) {
   browser.storage.local.get("tosCache", (result) => {
     const cache = result.tosCache || {};
@@ -108,10 +114,10 @@ function loadAnalysis(domain, callback) {
 
     if (!entry) {
       console.log(`[Memory] No cache found for ${domain} — checking Supabase`);
-      readFromSupabase(domain).then(result => {
-        if (result) {
-          saveAnalysis(domain, result, '', []);
-          callback(result, []);
+      readFromSupabase(domain).then(supabaseResult => {
+        if (supabaseResult) {
+          saveAnalysis(domain, supabaseResult.summary, '', supabaseResult.optOutLinks);
+          callback(supabaseResult.summary, supabaseResult.optOutLinks);
         } else {
           callback(null);
         }
