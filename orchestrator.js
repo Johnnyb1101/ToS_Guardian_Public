@@ -112,7 +112,7 @@ if (result) {
   }
 
   // --- STEP 6: SAVE TO MEMORY ---
-  if (domain && evaluation.passed) {
+  if (domain && (evaluation.passed || evaluation.label === 'Adequate')) {
     saveAnalysis(domain, result.summary, textToAnalyze, optOutLinks);
     console.log("[Orchestrator] Analysis saved to memory for:", domain);
   }

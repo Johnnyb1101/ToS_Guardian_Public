@@ -41,11 +41,49 @@ function hashString(str) {
   return hash.toString();
 }
 
+// Read a cached analysis from Supabase community cache
+async function readFromSupabase(domain) {
+  try {
+    const response = await fetch(`https://tos-guardian-proxy-production.up.railway.app/read/${domain}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.result) {
+      console.log(`[Supabase] Community cache hit for ${domain}`);
+      return data.result;
+    }
+    return null;
+  } catch (err) {
+    console.warn(`[Supabase] Read failed for ${domain}:`, err.message);
+    return null;
+  }
+}
+
+// Write an analysis result to Supabase community cache
+async function writeToSupabase(domain, summary, aiProvider) {
+  console.log(`[Supabase] Attempting write for ${domain}`);
+  try {
+    const response = await fetch('https://tos-guardian-proxy-production.up.railway.app/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        domain: domain,
+        analysis_result: summary,
+        ai_provider: aiProvider || 'anthropic'
+      })
+    });
+    if (response.ok) {
+      console.log(`[Supabase] Analysis written for ${domain}`);
+    }
+  } catch (err) {
+    console.warn(`[Supabase] Write failed for ${domain}:`, err.message);
+  }
+}
+
 // Save an analysis result for a domain
 function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
   const entry = {
     summary: summary,
-    summaryHash: hashString(summary),       // integrity check (SECURITY-008)
+    summaryHash: hashString(summary),
     fingerprint: fingerprintText(tosText),
     savedAt: Date.now(),
     optOutLinks: optOutLinks
@@ -56,6 +94,7 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
     cache[domain] = entry;
     browser.storage.local.set({ tosCache: cache }, () => {
       console.log(`[Memory] Saved analysis for ${domain}`);
+      writeToSupabase(domain, summary, 'anthropic');
     });
   });
 }
@@ -68,8 +107,15 @@ function loadAnalysis(domain, callback) {
     const entry = cache[domain];
 
     if (!entry) {
-      console.log(`[Memory] No cache found for ${domain}`);
-      callback(null);
+      console.log(`[Memory] No cache found for ${domain} — checking Supabase`);
+      readFromSupabase(domain).then(result => {
+        if (result) {
+          saveAnalysis(domain, result, '', []);
+          callback(result, []);
+        } else {
+          callback(null);
+        }
+      });
       return;
     }
 
