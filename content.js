@@ -113,16 +113,18 @@ function showGuardianOverlay(event) {
   }, { passive: true });
 
   document.getElementById("tg-proceed").addEventListener("click", () => {
+  observerPaused = true;
   overlay.remove();
   clickedButton.removeEventListener("click", showGuardianOverlay, true);
   hookedButtons.delete(clickedButton);
   setTimeout(() => {
-    clickedButton.dispatchEvent(new MouseEvent("click", { 
-      bubbles: true, 
+    clickedButton.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
       cancelable: true,
-      view: window 
+      view: window
     }));
-  }, 50);
+    setTimeout(() => { observerPaused = false; }, 500);
+  }, 100);
 });
 
   document.getElementById("tg-leave").addEventListener("click", () => {
@@ -163,9 +165,13 @@ function attachToButtons() {
   hookShadowButtons(document.body);
 }
 
+let observerPaused = false;
+
 function initTosGuardian() {
   attachToButtons();
-  const observer = new MutationObserver(() => attachToButtons());
+  const observer = new MutationObserver(() => {
+    if (!observerPaused) attachToButtons();
+  });
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
 }
 
