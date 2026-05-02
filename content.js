@@ -2,6 +2,12 @@ const hookedButtons = new WeakSet();
 const browser = globalThis.browser || chrome;
 
 function isAgreeButton(el) {
+  const blockedDomains = [
+    'linkedin.com', 'facebook.com', 'twitter.com',
+    'x.com', 'instagram.com', 'youtube.com'
+  ];
+  if (blockedDomains.some(d => location.hostname.includes(d))) return false;
+
   const text = el.innerText?.toLowerCase().trim() || "";
   const pageText = document.body.innerText.toLowerCase();
 
@@ -107,10 +113,17 @@ function showGuardianOverlay(event) {
   }, { passive: true });
 
   document.getElementById("tg-proceed").addEventListener("click", () => {
-    overlay.remove();
-    clickedButton.removeEventListener("click", showGuardianOverlay);
-    clickedButton.click();
-  });
+  overlay.remove();
+  clickedButton.removeEventListener("click", showGuardianOverlay, true);
+  hookedButtons.delete(clickedButton);
+  setTimeout(() => {
+    clickedButton.dispatchEvent(new MouseEvent("click", { 
+      bubbles: true, 
+      cancelable: true,
+      view: window 
+    }));
+  }, 50);
+});
 
   document.getElementById("tg-leave").addEventListener("click", () => {
     overlay.remove();
