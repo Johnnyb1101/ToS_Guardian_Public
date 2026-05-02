@@ -66,7 +66,7 @@ async function readFromSupabase(domain) {
 }
 
 // Write an analysis result to Supabase community cache
-async function writeToSupabase(domain, summary, aiProvider, optOutLinks = []) {
+async function writeToSupabase(domain, summary, aiProvider, optOutLinks = [], privacyText = '') {
   try {
     const response = await fetch(`${PROXY_URL}/write`, {
       method: 'POST',
@@ -75,7 +75,8 @@ async function writeToSupabase(domain, summary, aiProvider, optOutLinks = []) {
         domain,
         analysis_result: summary,
         ai_provider: aiProvider,
-        opt_out_links: optOutLinks
+        opt_out_links: optOutLinks,
+        privacy_text: privacyText
       })
     });
     const data = await response.json();
@@ -102,7 +103,7 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
     cache[domain] = entry;
     browser.storage.local.set({ tosCache: cache }, () => {
       console.log(`[Memory] Saved analysis for ${domain}`);
-      writeToSupabase(domain, summary, 'anthropic', optOutLinks);
+      writeToSupabase(domain, summary, 'anthropic', optOutLinks, tosText);
     });
   });
 }
