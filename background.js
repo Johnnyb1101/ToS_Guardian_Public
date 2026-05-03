@@ -9,6 +9,16 @@ const PROXY_URL = "https://tos-guardian-proxy-production.up.railway.app";
 // How long before we re-analyze a site (15 days in milliseconds)
 const CACHE_EXPIRY_MS = 15 * 24 * 60 * 60 * 1000;
 
+// Simple hash function for cache integrity check (SECURITY-008)
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString();
+}
+
 // Write an analysis result to Supabase community cache
 async function writeToSupabase(domain, summary, aiProvider, optOutLinks = [], privacyText = '') {
   try {
