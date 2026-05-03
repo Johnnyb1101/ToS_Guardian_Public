@@ -297,19 +297,19 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
 
 async function fetchNextJsDocument(url) {
   try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!match) return null;
-    const json = JSON.parse(match[1]);
-    const document = json?.props?.pageProps?.document;
-    if (document && document.length > 500) {
-      console.log(`[Fetcher] Extracted Next.js document from: ${url}`);
-      return { text: stripHtml(document), html: document };
+    const response = await fetch(`${PROXY_URL}/fetch-document`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await response.json();
+    if (data.text && data.text.length > 500) {
+      console.log(`[Fetcher] Proxy fetch successful for ${url} — method: ${data.method}`);
+      return { text: stripHtml(data.text), html: data.text };
     }
     return null;
   } catch (e) {
-    console.warn(`[Fetcher] Next.js extraction failed for ${url}:`, e.message);
+    console.warn(`[Fetcher] Proxy fetch failed for ${url}:`, e.message);
     return null;
   }
 }
