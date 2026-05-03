@@ -41,32 +41,20 @@ const source = fetched
   : "current page";
 console.log("[Orchestrator] Text source:", source);
 
-// --- STEP 2.5: FINGERPRINT CHECK ---
-// Now we have the actual fetched text — compare against stored fingerprint
-if (domain) {
-  const fingerprintChanged = await new Promise(resolve => {
-    browser.storage.local.get("tosCache", (result) => {
-      const cache = result.tosCache || {};
-      const entry = cache[domain];
-      if (!entry) { resolve(false); return; }
-      const currentFingerprint = fingerprintText(textToAnalyze);
-      resolve(currentFingerprint !== entry.fingerprint);
-    });
-  });
-  if (!fingerprintChanged) {
-    // Fingerprint matches — re-fetch the summary and return it
-    const cached = await new Promise(resolve => {
-  loadAnalysis(domain, (summary, optOutLinks) => 
-    resolve(summary ? { summary, optOutLinks } : null)
-  );
-});
-    if (cached) {
-      console.log("[Orchestrator] Fingerprint match — serving cached analysis");
-      return cached;
-    }
-  } else {
-    console.log("[Orchestrator] Fingerprint mismatch — ToS changed, re-analyzing");
+// --- STEP 2.5: SEMANTIC SIMILARITY CHECK ---
+// Now we have fetched privacy text — check Supabase for a semantically similar cached result
+if (domain && fetched) {
+  const privacyText = sanitizeForPrompt(
+    fetched.text.split(/={3,}/).find(s => s.includes('PRIVACY POLICY')) || fetched.text
+  ).slice(0, 10000);
+
+  const supabaseResult = await readFromSupabase(domain, privacyText);
+  if (supabaseResult) {
+    console.log("[Orchestrator] Semantic cache hit — skipping analysis");
+    saveAnalysis(domain, supabaseResult.summary, fetched.text, supabaseResult.optOutLinks);
+    return { summary: supabaseResult.summary, optOutLinks: supabaseResult.optOutLinks };
   }
+  console.log("[Orchestrator] No semantic match — running full analysis");
 }
 
   // --- STEP 3: LINK FOLLOWER AGENT ---

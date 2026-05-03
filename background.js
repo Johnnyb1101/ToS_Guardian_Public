@@ -93,7 +93,6 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
   const entry = {
     summary: summary,
     summaryHash: hashString(summary),
-    fingerprint: fingerprintText(tosText),
     savedAt: Date.now(),
     optOutLinks: optOutLinks
   };
@@ -106,6 +105,28 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
       writeToSupabase(domain, summary, 'anthropic', optOutLinks, tosText);
     });
   });
+}
+
+async function readFromSupabase(domain, privacyText = '') {
+  try {
+    const url = privacyText
+      ? `${PROXY_URL}/read/${domain}?text=${encodeURIComponent(privacyText)}`
+      : `${PROXY_URL}/read/${domain}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.result) {
+      console.log('[Supabase] Community cache hit for', domain);
+      const validatedLinks = (data.opt_out_links || []).filter(url => {
+        try { return validateLinkFollowerUrl(url); }
+        catch { return false; }
+      });
+      return { summary: data.result, optOutLinks: validatedLinks };
+    }
+    return null;
+  } catch (err) {
+    console.error('[Supabase] Read error:', err);
+    return null;
+  }
 }
 
 function loadAnalysis(domain, callback) {
@@ -178,7 +199,6 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
           privacyResult ? `=== PRIVACY POLICY ===\n${privacyResult.text}` : ""
         ].filter(Boolean).join("\n\n");
         const sourceUrl = tosResult?.sourceUrl || privacyResult?.sourceUrl;
-        // Learn this site for future sessions
         await learnSite(pageUrl, knownUrls.tos, knownUrls.privacy);
         return {
           text: combined,
@@ -192,7 +212,6 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
     // Step 0: Scan page HTML for ToS AND Privacy Policy links separately
     const domain = new URL(pageUrl).hostname;
 
-    // Step 0: Scan page HTML for ToS AND Privacy Policy links separately
     if (pageHtml) {
       const allHrefs = [...pageHtml.matchAll(/href="([^"]+)"/g)]
         .map(m => m[1]);
@@ -213,7 +232,6 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
 
       console.log(`[Fetcher] Found ${tosHrefs.length} ToS links and ${privacyHrefs.length} privacy links in page HTML`);
 
-      // Fetch both in parallel from page HTML links
       const [tosFromPage, privacyFromPage] = await Promise.all([
         tryFetchCandidates([...new Set(tosHrefs)]),
         tryFetchCandidates([...new Set(privacyHrefs)])
@@ -224,7 +242,6 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
           tosFromPage ? `=== TERMS OF SERVICE ===\n${tosFromPage.text}` : "",
           privacyFromPage ? `=== PRIVACY POLICY ===\n${privacyFromPage.text}` : ""
         ].filter(Boolean).join("\n\n");
-
         const sourceUrl = tosFromPage?.sourceUrl || privacyFromPage?.sourceUrl;
         console.log(`[Fetcher] Got documents from page HTML links`);
         return {
@@ -236,22 +253,19 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
       }
     }
 
-    // Step 1: Try to find both ToS AND Privacy Policy
+    // Step 1: Candidate URL guessing
     const tosCandidates = [
-  `https://${domain}/terms`,
-  `https://${domain}/terms-of-service`,
-  `https://${domain}/legal/terms`,
-  `https://www.redditinc.com/policies/user-agreement`,
-];
+      `https://${domain}/terms`,
+      `https://${domain}/terms-of-service`,
+      `https://${domain}/legal/terms`,
+    ];
 
     const privacyCandidates = [
-  `https://${domain}/privacy`,
-  `https://${domain}/privacy-policy`,
-  `https://${domain}/legal/privacy`,
-  `https://www.redditinc.com/policies/privacy-policy`,
-];
+      `https://${domain}/privacy`,
+      `https://${domain}/privacy-policy`,
+      `https://${domain}/legal/privacy`,
+    ];
 
-    // Fetch both in parallel
     const [tosResult, privacyResult] = await Promise.all([
       tryFetchCandidates(tosCandidates),
       tryFetchCandidates(privacyCandidates)
@@ -262,11 +276,10 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
         tosResult ? `=== TERMS OF SERVICE ===\n${tosResult.text}` : "",
         privacyResult ? `=== PRIVACY POLICY ===\n${privacyResult.text}` : ""
       ].filter(Boolean).join("\n\n");
-
       const sourceUrl = tosResult?.sourceUrl || privacyResult?.sourceUrl;
       console.log(`[Fetcher] Combined ToS + Privacy Policy from ${domain}`);
-      return { 
-        text: combined, 
+      return {
+        text: combined,
         sourceUrl,
         privacyHtml: privacyResult?.html || null,
         privacyUrl: privacyResult?.sourceUrl || null
@@ -282,8 +295,30 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
   }
 }
 
+async function fetchNextJsDocument(url) {
+  try {
+    const response = await fetch(url);
+    const html = await response.text();
+    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) return null;
+    const json = JSON.parse(match[1]);
+    const document = json?.props?.pageProps?.document;
+    if (document && document.length > 500) {
+      console.log(`[Fetcher] Extracted Next.js document from: ${url}`);
+      return { text: stripHtml(document), html: document };
+    }
+    return null;
+  } catch (e) {
+    console.warn(`[Fetcher] Next.js extraction failed for ${url}:`, e.message);
+    return null;
+  }
+}
+
 async function tryFetchCandidates(candidates) {
   for (const url of candidates) {
+    const nextResult = await fetchNextJsDocument(url);
+    if (nextResult) return { text: nextResult.text, html: nextResult.html, sourceUrl: url };
+
     const result = await fetchWithHiddenTab(url);
     if (result && result.text && result.text.length > 500) {
       console.log(`[Fetcher] Found at: ${url}`);
@@ -292,6 +327,7 @@ async function tryFetchCandidates(candidates) {
   }
   return null;
 }
+
 // Opens a hidden tab, waits for it to fully render, grabs text, closes it
 function fetchWithHiddenTab(url) {
   return new Promise((resolve) => {
