@@ -343,12 +343,17 @@ async function analyzeWithModel(text, source = "this page") {
   const provider = settings.selectedProvider || 'anthropic';
   console.log(`[Analyzer] Using provider: ${provider}`);
 
-  // Split documents and allocate space fairly
-  const sections = text.split(/={3,}/);
-  const charsPerSection = Math.floor(50000 / Math.max(sections.length, 1));
-  const trimmedText = sections
-    .map(s => sanitizeForPrompt(s).slice(0, charsPerSection))
-    .join("\n\n===");
+  // Split documents and allocate space — Privacy Policy gets priority
+const sections = text.split(/={3,}/);
+const totalBudget = 80000;
+
+const trimmedText = sections.map(s => {
+  const clean = sanitizeForPrompt(s);
+  if (s.includes('PRIVACY POLICY') || s.includes('OPT-OUT')) {
+    return clean.slice(0, Math.floor(totalBudget * 0.6));
+  }
+  return clean.slice(0, Math.floor(totalBudget * 0.25));
+}).join("\n\n===");
 
   const systemPrompt = `You are a privacy rights analyzer. Your sole purpose is to analyze legal documents and extract privacy-relevant information for users.
 
