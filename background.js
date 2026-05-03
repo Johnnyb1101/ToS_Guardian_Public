@@ -9,62 +9,6 @@ const PROXY_URL = "https://tos-guardian-proxy-production.up.railway.app";
 // How long before we re-analyze a site (15 days in milliseconds)
 const CACHE_EXPIRY_MS = 15 * 24 * 60 * 60 * 1000;
 
-// Creates a simple fingerprint of the ToS text to detect changes
-function fingerprintText(text) {
-  // Clean dynamic noise before hashing so session tokens, timestamps,
-  // and A/B variants don't bust the cache on every visit.
-  // This is a pre-release patch — pgvector semantic similarity replaces this later.
-  let cleaned = text
-    .replace(/<script[\s\S]*?<\/script>/gi, '')      // strip script blocks
-    .replace(/<style[\s\S]*?<\/style>/gi, '')         // strip style blocks
-    .replace(/<[^>]+>/g, ' ')                         // strip all HTML tags
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '') // strip UUIDs
-    .replace(/\b\d{10,13}\b/g, '')                   // strip unix timestamps
-    .replace(/[a-zA-Z0-9+/]{40,}={0,2}/g, '')        // strip base64 tokens
-    .replace(/\s+/g, ' ')                             // collapse whitespace
-    .trim();
-
-  let hash = 0;
-  for (let i = 0; i < cleaned.length; i++) {
-    hash = (hash << 5) - hash + cleaned.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash.toString();
-}
-
-// Simple hash function — same approach as fingerprintText()
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash.toString();
-}
-
-// Read a cached analysis from Supabase community cache
-async function readFromSupabase(domain) {
-  try {
-    const response = await fetch(`${PROXY_URL}/read/${domain}`);
-    const data = await response.json();
-    if (data.result) {
-      console.log('[Supabase] Community cache hit for', domain);
-      const validatedLinks = (data.opt_out_links || []).filter(url => {
-        try {
-          return validateLinkFollowerUrl(url);
-        } catch {
-          return false;
-        }
-      });
-      return { summary: data.result, optOutLinks: validatedLinks };
-    }
-    return null;
-  } catch (err) {
-    console.error('[Supabase] Read error:', err);
-    return null;
-  }
-}
-
 // Write an analysis result to Supabase community cache
 async function writeToSupabase(domain, summary, aiProvider, optOutLinks = [], privacyText = '') {
   try {
