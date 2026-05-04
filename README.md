@@ -8,8 +8,7 @@ Most people click "I Agree" without reading anything. TOS Guardian stops that. W
 
 - 🔴 Data selling and sharing — who gets your data and why
 - 🔴 Opt-out rights — what you can actually do about it
-- 📋 Step-by-step opt-out guide — specific steps, links, and settings
-- 🟡 Arbitration and legal rights — what rights you're signing away
+- 📋 How to opt out right now — specific steps, links, and setting paths
 - 🟡 Auto-renewal and billing traps
 - 🟢 Data deletion rights — how to get your data removed
 
@@ -19,12 +18,13 @@ TOS Guardian runs a multi-agent pipeline entirely inside the Chrome extension:
 
 Memory → Fetcher → Link Follower → Analyzer → Evaluator → UI
 
-- **Memory Agent** — caches analysis results for 15 days, detects when a ToS has changed
-- **Fetcher Agent** — opens hidden tabs to render JS-heavy legal pages and retrieve real document text
-- **Link Follower Agent** — hunts down opt-out and privacy settings pages buried inside documents
-- **Analyzer** — sends combined documents to an AI model with a structured 6-category prompt
+- **Memory Agent** — caches analysis results locally for 15 days and in a community Supabase database. Uses semantic similarity via pgvector to detect meaningful ToS changes rather than exact text matching
+- **Fetcher Agent** — retrieves legal documents via a server-side proxy to bypass CORS restrictions. Supports Next.js `__NEXT_DATA__` extraction for JS-rendered pages, with hidden tab rendering as fallback
+- **Link Follower Agent** — hunts down opt-out and privacy settings pages buried inside documents, follows them, and appends their content before analysis
+- **Analyzer** — sends combined documents to an AI model with a structured 5-category prompt
 - **Evaluator Agent** — scores the analysis quality before it reaches you
 - **Site Database** — 30+ hardcoded known sites for instant URL lookup, plus self-learning for new sites
+- **Proxy Server** — a Node.js/Express server on Railway handles server-side document fetching and community cache reads/writes via Supabase
 
 ## Installation
 
@@ -36,8 +36,8 @@ Memory → Fetcher → Link Follower → Analyzer → Evaluator → UI
 6. Enter your API key and select your AI provider
 7. Visit any site with an agree button and click it
 
-> **Note:** TOS Guardian requires your own API key to function. 
-> See Supported AI Providers below for where to get one. 
+> **Note:** TOS Guardian requires your own API key to function.
+> See Supported AI Providers below for where to get one.
 > Anthropic offers free trial credits to new accounts.
 
 ## Supported AI Providers
@@ -53,7 +53,7 @@ TOS Guardian supports three AI providers. You supply your own API key.
 ## Browser Support
 
 - ✅ Chrome
-- 🔲 Microsoft Edge — architecture is compatible but untested
+- ✅ Microsoft Edge — confirmed working
 - 🔲 Firefox — architecture is compatible but untested
 
 ## Security
@@ -61,24 +61,27 @@ TOS Guardian supports three AI providers. You supply your own API key.
 TOS Guardian was built with security as a first-class concern. The extension:
 
 - Never stores API keys in code — keys live in `chrome.storage.local` only
+- Routes all document fetching through a server-side proxy — no direct browser fetches to third-party legal pages
 - Sanitizes all fetched document text before it reaches the AI prompt
 - Defends against prompt injection via explicit system prompt instructions
 - Validates all URLs before opening hidden tabs — blocks private IPs, localhost, and non-HTTPS
 - Uses a WeakSet for button hook tracking — inaccessible to page scripts
 - Verifies cached analysis integrity with a hash check on every read
+- Evaluator schema validation — fails closed if analysis output doesn't match expected format
 
 ## Known Limitations
 
 - Sites that submit forms via Enter key on an input field (not a button) may bypass interception
-- Fingerprint-based change detection can produce false positives on sites with dynamic content — semantic similarity via vector embeddings is the planned long-term fix
-- The self-learning site database is currently per-user only — cross-user learning requires a backend
+- Button interception on dynamically rendered Next.js pages may require a second click in some cases when browser DevTools is open
+- The self-learning site database writes to both local storage and the community Supabase database — community entries expire after 15 days
 
 ## Roadmap
 
-- [ ] Proxy server backend — zero API key setup for general users
-- [ ] Automated opt-out submission — fill and send opt-out requests on your behalf
+- [x] Proxy server backend — server-side document fetching, CORS bypass
+- [x] Community cache — Supabase-backed cross-user analysis sharing
+- [x] Semantic similarity via pgvector for reliable ToS change detection
+- [ ] Opt-out resource generation — forms, email templates, and direct links surfaced per site
 - [ ] CCPA/GDPR deletion request generation and compliance tracking
-- [ ] Semantic similarity via pgvector for reliable ToS change detection
 - [ ] Chrome Web Store release
 
 ## About
