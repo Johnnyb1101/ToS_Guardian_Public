@@ -106,6 +106,7 @@ if (result) {
   }
 
   console.log("[Orchestrator] Relay complete");
+  console.log('[Orchestrator] optOutLinks being returned:', optOutLinks);
   return { ...result, optOutLinks };
 }
 
@@ -187,10 +188,26 @@ const uniqueLinks = allLinks;
     }
     console.log(`[LinkFollower] Fetching: ${url}`);
     try {
-      const fetched = await fetchWithHiddenTab(url);
-if (fetched && fetched.text && fetched.text.length > 200) {
-  console.log(`[LinkFollower] Retrieved content from: ${url}`);
-  appendSections.push(`=== OPT-OUT / PRIVACY PAGE: ${url} ===\n${fetched.text}`);
+      let fetched = await fetchWithHiddenTab(url);
+      if (!fetched || !fetched.text || fetched.text.length <= 200) {
+        try {
+          const r = await fetch(`${PROXY_URL}/fetch-document`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+          const d = await r.json();
+          if (d.text && d.text.length > 200) {
+            fetched = { text: stripHtml(d.text), html: d.text };
+            console.log(`[LinkFollower] Proxy fallback successful for: ${url}`);
+          }
+        } catch (e) {
+          console.warn(`[LinkFollower] Proxy fallback failed for ${url}:`, e.message);
+        }
+      }
+      if (fetched && fetched.text && fetched.text.length > 200) {
+        console.log(`[LinkFollower] Retrieved content from: ${url}`);
+        appendSections.push(`=== OPT-OUT / PRIVACY PAGE: ${url} ===\n${fetched.text}`);
       } else {
         console.log(`[LinkFollower] No usable content at: ${url}`);
       }

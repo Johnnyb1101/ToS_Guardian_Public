@@ -1,5 +1,3 @@
-// TOS Guardian — Shared Utilities
-
 function formatSummary(raw, optOutLinks = []) {
   if (!raw) return "";
 
@@ -16,10 +14,13 @@ function formatSummary(raw, optOutLinks = []) {
   const lines = raw.split("\n").map(l => l.trim()).filter(l => l !== "" && l !== "•");
 
   // Build opt-out links HTML once
-  const optOutHtml = optOutLinks && optOutLinks.length > 0 ? `
+  const validLinks = (optOutLinks || [])
+  .map(url => url ? url.trim().replace(/\s+/g, '') : '')
+  .filter(url => url && url.startsWith('http'));
+  const optOutHtml = validLinks.length > 0 ? `
     <div class="tg-optout-links">
       <div class="tg-optout-title">Opt-Out Links Found</div>
-      ${optOutLinks.map(url => `<a class="tg-optout-link" href="${url}" target="_blank">${url}</a>`).join("")}
+      ${validLinks.map(url => `<a class="tg-optout-link" href="${url}" target="_blank">${url}</a>`).join("")}
     </div>` : "";
 
   let html = evalWarning;
@@ -29,10 +30,17 @@ function formatSummary(raw, optOutLinks = []) {
 
   const flush = () => {
     if (currentTitle) {
-      // Clean each line — strip leading bullets and markdown bold markers
       const bodyLines = currentBody
-        .map(l => l.replace(/^•\s*/, "").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").trim())
-        .filter(l => l !== "");
+        .map(l => l
+          .replace(/^•\s*/, "")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/\|[-\s|]+\|/g, '')
+          .replace(/^\|\s*/g, '')
+          .replace(/\s*\|$/g, '')
+          .replace(/\s*\|\s*/g, ' — ')
+          .trim()
+        )
+        .filter(l => l !== "" && l !== "---" && l !== "—" && !l.match(/^It.s your right to/i) && !l.match(/^[-\s|]+$/));
 
       const bodyHtml = bodyLines.map(l => `<p style="margin:0 0 6px 0;">${l}</p>`).join("");
 
@@ -42,7 +50,6 @@ function formatSummary(raw, optOutLinks = []) {
           <div class="tg-category-body">${bodyHtml}</div>
         </div>`;
 
-      // Insert opt-out links after the Opt-Out Rights section (🔴 OPT-OUT RIGHTS)
       if (!optOutInserted && currentTitle.includes("OPT-OUT RIGHTS") && optOutHtml) {
         html += optOutHtml;
         optOutInserted = true;
@@ -59,24 +66,10 @@ function formatSummary(raw, optOutLinks = []) {
   }
   flush();
 
-  // Fallback — if opt-out links weren't inserted at the right section, append before badge
   if (!optOutInserted && optOutHtml) {
     html += optOutHtml;
   }
 
   html += evalBadge;
   return html;
-}
-
-// Call this from popup.js after analysis returns.
-// riskLevel: "high" | "medium" | "low"
-function setPopupHeader(domain, riskLevel) {
-  const domainEl = document.getElementById("tg-domain");
-  const pillEl   = document.getElementById("tg-risk-pill");
-  if (domainEl && domain) domainEl.textContent = domain;
-  if (pillEl && riskLevel) {
-    const labels = { high: "High risk", medium: "Medium risk", low: "Low risk" };
-    pillEl.textContent = labels[riskLevel] || "";
-    pillEl.className = `tg-risk-pill tg-risk-${riskLevel} visible`;
-  }
 }

@@ -12,10 +12,11 @@ function isAgreeButton(el) {
   const pageText = document.body.innerText.toLowerCase();
 
   const highConfidence = [
-    "i agree", "accept all", "i accept",
-    "agree & continue", "accept & continue",
-    "continue with sso"
-  ];
+  "i agree", "accept all", "i accept",
+  "agree & continue", "accept & continue",
+  "continue with sso",
+  "sign up free"
+];
 
   const lowConfidence = ["sign up", "create account", "register"];
 
@@ -54,14 +55,14 @@ function showGuardianOverlay(event) {
   overlay.innerHTML = `
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
-      #tg-card { background:#fff; border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.18); max-width:480px; width:90%; overflow:hidden; }
+      #tg-card { background:#fff; border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.18); max-width:620px; width:90%; overflow:hidden; }
       #tg-card-topbar { height:4px; background:#1a1aff; }
       #tg-card-header { display:flex; align-items:center; gap:12px; padding:16px 20px 14px; border-bottom:1px solid #f0f0f0; }
       #tg-card-shield { width:34px; height:34px; background:#1a1aff; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
       #tg-card-shield-icon { width:16px; height:18px; background:#fff; clip-path:polygon(50% 0%,100% 25%,100% 70%,50% 100%,0% 70%,0% 25%); }
       #tg-card-title { font-size:14px; font-weight:600; color:#111; }
       #tg-card-subtitle { font-size:12px; color:#aaa; margin-top:1px; }
-      #tg-summary { padding:4px 0; max-height:360px; overflow-y:scroll; overscroll-behavior:contain; pointer-events:all; }
+      #tg-summary { padding:4px 0; max-height:700px; overflow-y:scroll; overscroll-behavior:contain; pointer-events:all; }
       #tg-summary-loading { padding:28px 20px; display:flex; align-items:center; gap:12px; color:#888; font-size:13px; }
       #tg-spinner { width:20px; height:20px; border:2px solid #ebebeb; border-top-color:#1a1aff; border-radius:50%; animation:tg-spin 0.75s linear infinite; flex-shrink:0; }
       @keyframes tg-spin { to { transform:rotate(360deg); } }
@@ -133,17 +134,22 @@ function showGuardianOverlay(event) {
 
   const fullText = document.body.innerText;
   browser.runtime.sendMessage(
-    { action: "analyzeTos", text: fullText, pageHtml: document.documentElement.innerHTML },
-    (result) => {
-      const summaryEl = document.getElementById("tg-summary");
-      if (summaryEl) {
-        summaryEl.innerHTML = formatSummary(
-          result?.summary || "Could not analyze this page.",
-          result?.optOutLinks || []
-        );
-      }
+  { 
+    action: "analyzeTos", 
+    text: fullText, 
+    pageUrl: window.location.href,
+    pageHtml: document.documentElement.innerHTML 
+  },
+  (result) => {
+    const summaryEl = document.getElementById("tg-summary");
+    if (summaryEl) {
+      summaryEl.innerHTML = formatSummary(
+        result?.summary || "Could not analyze this page.",
+        result?.optOutLinks || []
+      );
     }
-  );
+  }
+);
 }
 
 function attachToButtons() {
@@ -169,6 +175,8 @@ let observerPaused = false;
 
 function initTosGuardian() {
   attachToButtons();
+  setTimeout(attachToButtons, 2000);
+  setTimeout(attachToButtons, 4000);
   const observer = new MutationObserver(() => {
     if (!observerPaused) attachToButtons();
   });

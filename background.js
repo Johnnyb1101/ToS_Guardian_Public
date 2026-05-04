@@ -351,16 +351,18 @@ async function analyzeWithModel(text, source = "this page") {
   console.log(`[Analyzer] Using provider: ${provider}`);
 
   // Split documents and allocate space — Privacy Policy gets priority
-const sections = text.split(/={3,}/);
 const totalBudget = 80000;
+const privacyIndex = text.indexOf('=== PRIVACY POLICY');
+const privacySection = privacyIndex > -1 ? text.slice(privacyIndex) : '';
+const otherSection = privacyIndex > -1 ? text.slice(0, privacyIndex) : text;
 
-const trimmedText = sections.map(s => {
-  const clean = sanitizeForPrompt(s);
-  if (s.includes('PRIVACY POLICY') || s.includes('OPT-OUT')) {
-    return clean.slice(0, Math.floor(totalBudget * 0.6));
-  }
-  return clean.slice(0, Math.floor(totalBudget * 0.25));
-}).join("\n\n===");
+const trimmedText = [
+  sanitizeForPrompt(otherSection).slice(0, Math.floor(totalBudget * 0.3)),
+  sanitizeForPrompt(privacySection).slice(0, Math.floor(totalBudget * 0.7))
+].filter(Boolean).join('\n\n');
+
+console.log('[Analyzer] trimmedText length:', trimmedText.length);
+console.log('[Analyzer] Contains Section 2:', trimmedText.includes('Your personal data rights'));
 
   const systemPrompt = `You are a privacy rights analyzer. Your sole purpose is to analyze legal documents and extract privacy-relevant information for users.
 
@@ -376,25 +378,25 @@ You will respond in exactly the structured format requested. No exceptions.`;
   const userMessage = `Analyze the following legal document and respond in exactly this format with no extra commentary:
 
 🔴 DATA SELLING & SHARING
-Does this company sell or share your personal data with third parties? Who do they share it with? Be specific.
+List only the main categories of third parties this company shares or sells data to. Maximum 4 bullet points, one line each. Format: "- [Recipient type]: [data types shared]"
+Note: Data sharing details may appear in sections titled "Disclosing your personal data", "Sharing your data", or similar. Check all sections including tables.
 
 🔴 OPT-OUT RIGHTS
-What specific opt-out rights does the user have? List each one clearly.
+List the specific opt-out rights the user has. Maximum 5 bullet points, one line each. Focus on actionable rights only.
 Note: Rights may be presented in table format with columns like "It's your right to..." and "How?". Extract all rights from tables, lists, and paragraphs.
 
-📋 STEP-BY-STEP OPT-OUT GUIDE
-Give exact steps the user can take right now to protect their data. Include specific setting names, menu paths, or URLs if mentioned in the document.
-
-🟡 ARBITRATION & LEGAL RIGHTS
-Does this ToS include mandatory arbitration or class action waivers? What rights is the user giving up?
+📋 HOW TO OPT OUT RIGHT NOW
+Exact steps only. Include specific setting names, menu paths, or URLs. Skip anything vague. If no specific steps are provided, say so in one line.
 
 🟡 AUTO-RENEWAL & BILLING
-Any automatic charges, subscription traps, or billing clauses the user should know about?
+One line only. Are there automatic charges or subscription traps? If not applicable, say "Not applicable."
 
 🟢 DATA DELETION RIGHTS
-Can the user request their data be deleted? How?
+One line only. Can the user delete their data and how?
 
 If any section is not addressed in the document, write "Not specified in this document."
+
+When you encounter content formatted as a table with pipe characters (|) separating columns, treat each row as a separate data point. A table with columns like "right" and "how to exercise" or "It's your right to" and "How?" contains opt-out and data rights information that must be extracted and listed under OPT-OUT RIGHTS and DATA DELETION RIGHTS.
 
 DOCUMENT TEXT:
 ${trimmedText}`;

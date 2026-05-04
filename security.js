@@ -51,9 +51,11 @@ function sanitizeForPrompt(text) {
     .replace(/<[^>]+>/g, " ")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
     .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .split("\n")
-    .map(line => line.length > 2000 ? line.slice(0, 2000) : line)
+    .map(line => line.trim().length > 2000 ? line.trim().slice(0, 2000) : line.trim())
+    .filter(line => line.length > 0)
     .join("\n")
     .trim();
 }
