@@ -141,7 +141,8 @@ async function linkFollowerStub(text, source, privacyHtml = null, privacyUrl = n
     "do-not-sell", "donotsell", "do_not_sell",
     "data-deletion", "delete-my-data", "deletemydata",
     "privacy-choices", "privacychoices", "privacy-settings",
-    "data-rights", "your-privacy", "yourprivacy"
+    "data-rights", "your-privacy", "yourprivacy",
+    "safetyandprivacy", "learn-more-about-privacy", "account/privacy"
   ];
 
 // Scan plain text for full URLs

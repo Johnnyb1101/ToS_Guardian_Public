@@ -380,6 +380,7 @@ Does this company sell or share your personal data with third parties? Who do th
 
 🔴 OPT-OUT RIGHTS
 What specific opt-out rights does the user have? List each one clearly.
+Note: Rights may be presented in table format with columns like "It's your right to..." and "How?". Extract all rights from tables, lists, and paragraphs.
 
 📋 STEP-BY-STEP OPT-OUT GUIDE
 Give exact steps the user can take right now to protect their data. Include specific setting names, menu paths, or URLs if mentioned in the document.
