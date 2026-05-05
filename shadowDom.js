@@ -43,3 +43,32 @@ function hookShadowButtons(root) {
     }
   });
 }
+
+function hookShadowForms(root) {
+  walkShadowDOM(root, (el) => {
+    if (el.tagName?.toLowerCase() !== 'form') return;
+    if (hookedForms.has(el)) return;
+    hookedForms.add(el);
+
+    el.addEventListener('submit', function(event) {
+      const submitButtons = el.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])');
+      let hasAgreeButton = false;
+      submitButtons.forEach(btn => { if (isAgreeButton(btn)) hasAgreeButton = true; });
+
+      if (!hasAgreeButton) {
+        const pageText = document.body.innerText.toLowerCase();
+        const agreementContext = [
+          'by clicking', 'by continuing', 'by signing up',
+          'you agree', 'terms of service', 'privacy policy'
+        ].some(phrase => pageText.includes(phrase));
+        if (!agreementContext) return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showGuardianOverlay(event);
+    }, true);
+
+    console.log('[ShadowDOM] Hooked form inside shadow root:', el);
+  });
+}

@@ -1,4 +1,5 @@
 const hookedButtons = new WeakSet();
+const hookedForms = new WeakSet();
 const browser = globalThis.browser || chrome;
 
 function isAgreeButton(el) {
@@ -171,14 +172,42 @@ function attachToButtons() {
   hookShadowButtons(document.body);
 }
 
+function attachToForms() {
+  document.querySelectorAll('form').forEach(form => {
+    if (hookedForms.has(form)) return;
+    hookedForms.add(form);
+
+    form.addEventListener('submit', function(event) {
+      const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])');
+      let hasAgreeButton = false;
+      submitButtons.forEach(btn => { if (isAgreeButton(btn)) hasAgreeButton = true; });
+
+      if (!hasAgreeButton) {
+        const pageText = document.body.innerText.toLowerCase();
+        const agreementContext = [
+          'by clicking', 'by continuing', 'by signing up',
+          'you agree', 'terms of service', 'privacy policy'
+        ].some(phrase => pageText.includes(phrase));
+        if (!agreementContext) return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showGuardianOverlay(event);
+    }, true);
+  });
+  hookShadowForms(document.body);
+}
+
 let observerPaused = false;
 
 function initTosGuardian() {
   attachToButtons();
-  setTimeout(attachToButtons, 2000);
-  setTimeout(attachToButtons, 4000);
+  attachToForms();
+  setTimeout(() => { attachToButtons(); attachToForms(); }, 2000);
+  setTimeout(() => { attachToButtons(); attachToForms(); }, 4000);
   const observer = new MutationObserver(() => {
-    if (!observerPaused) attachToButtons();
+    if (!observerPaused) { attachToButtons(); attachToForms(); }
   });
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
 }
