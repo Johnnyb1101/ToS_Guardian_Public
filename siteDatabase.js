@@ -7,146 +7,56 @@
 // URL guessing and hidden tab scanning — it goes straight to the known URLs.
 //
 // TWO LAYERS:
-// 1. STATIC_SITES  — hardcoded, manually verified entries. Never expire.
-// 2. Learned sites — discovered at runtime by the Fetcher, saved to
-//                    chrome.storage.local with a 15-day expiry (same as Memory Agent).
-
+// 1. STATIC_SITES  — hardcoded, never expire. Offline fallback if proxy unreachable.
+// 2. Supabase      — cross-user learned sites via proxy GET /site/:domain
+// 3. Learned sites — discovered at runtime, saved locally + to Supabase via proxy POST /site
 
 const CACHE_EXPIRY_DAYS = 15;
 
 // ---------------------------------------------------------------------------
-// Static database — hardcoded, never expire
+// Static database — hardcoded, never expire, offline fallback
 // ---------------------------------------------------------------------------
 const STATIC_SITES = {
-
-  // Social / Community
   "reddit.com": {
-  tos: "https://www.redditinc.com/policies/user-agreement",
-  privacy: "https://www.redditinc.com/policies/privacy-policy"
-},
-  "twitter.com": {
-    tos: "https://twitter.com/en/tos",
-    privacy: "https://twitter.com/en/privacy"
+    tos: "https://www.redditinc.com/policies/user-agreement",
+    privacy: "https://www.redditinc.com/policies/privacy-policy"
   },
-  "x.com": {
-    tos: "https://twitter.com/en/tos",
-    privacy: "https://twitter.com/en/privacy"
-  },
-  "facebook.com": {
-    tos: "https://www.facebook.com/terms.php",
-    privacy: "https://www.facebook.com/privacy/policy/"
-  },
-  "instagram.com": {
-    tos: "https://help.instagram.com/581066165581870",
-    privacy: "https://privacycenter.instagram.com/policy"
-  },
-  "linkedin.com": {
-    tos: "https://www.linkedin.com/legal/user-agreement",
-    privacy: "https://www.linkedin.com/legal/privacy-policy"
-  },
-  "discord.com": {
-    tos: "https://discord.com/terms",
-    privacy: "https://discord.com/privacy"
-  },
-  "tiktok.com": {
-    tos: "https://www.tiktok.com/legal/page/us/terms-of-service/en",
-    privacy: "https://www.tiktok.com/legal/page/us/privacy-policy/en"
-  },
-
-  // Streaming & Music
-  "spotify.com": {
-    tos: "https://www.spotify.com/us/legal/end-user-agreement/",
-    privacy: "https://www.spotify.com/us/legal/privacy-policy/"
-  },
-  "netflix.com": {
-    tos: "https://help.netflix.com/legal/termsofuse",
-    privacy: "https://help.netflix.com/legal/privacy"
-  },
-  "youtube.com": {
-    tos: "https://www.youtube.com/t/terms",
-    privacy: "https://policies.google.com/privacy"
-  },
-  "twitch.tv": {
-    tos: "https://www.twitch.tv/p/en/legal/terms-of-service/",
-    privacy: "https://www.twitch.tv/p/en/legal/privacy-notice/"
-  },
-
-  // Shopping
-  "amazon.com": {
-    tos: "https://www.amazon.com/gp/help/customer/display.html?nodeId=508088",
-    privacy: "https://www.amazon.com/gp/help/customer/display.html?nodeId=468496"
-  },
-  "ebay.com": {
-    tos: "https://www.ebay.com/help/policies/member-behaviour-policies/user-agreement",
-    privacy: "https://www.ebay.com/help/policies/member-behaviour-policies/user-privacy-notice-privacy-policy"
-  },
-  "etsy.com": {
-    tos: "https://www.etsy.com/legal/terms-of-use/",
-    privacy: "https://www.etsy.com/legal/privacy/"
-  },
-  "paypal.com": {
-    tos: "https://www.paypal.com/us/legalhub/useragreement-full",
-    privacy: "https://www.paypal.com/us/legalhub/privacy-full"
-  },
-
-  // Travel
-  "airbnb.com": {
-    tos: "https://www.airbnb.com/help/article/2908",
-    privacy: "https://www.airbnb.com/help/article/2855"
-  },
-  "uber.com": {
-    tos: "https://www.uber.com/legal/en/document/?name=general-terms-of-use&country=united-states&lang=en",
-    privacy: "https://www.uber.com/legal/en/document/?name=privacy-notice&country=united-states&lang=en"
-  },
-
-  // Tech & Software
-  "google.com": {
-    tos: "https://policies.google.com/terms",
-    privacy: "https://policies.google.com/privacy"
-  },
-  "apple.com": {
-    tos: "https://www.apple.com/legal/internet-services/terms/site.html",
-    privacy: "https://www.apple.com/legal/privacy/"
-  },
-  "microsoft.com": {
-    tos: "https://www.microsoft.com/en-us/servicesagreement/",
-    privacy: "https://privacy.microsoft.com/en-us/privacystatement"
-  },
-  "github.com": {
-    tos: "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
-    privacy: "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
-  },
-  "zoom.us": {
-    tos: "https://explore.zoom.us/en/terms/",
-    privacy: "https://explore.zoom.us/en/privacy/"
-  },
-  "slack.com": {
-    tos: "https://slack.com/terms-of-service",
-    privacy: "https://slack.com/privacy-policy"
-  },
-
-  // Gaming
-  "steampowered.com": {
-    tos: "https://store.steampowered.com/subscriber_agreement/",
-    privacy: "https://store.steampowered.com/privacy_agreement/"
-  },
-  "epicgames.com": {
-    tos: "https://www.epicgames.com/tos",
-    privacy: "https://www.epicgames.com/privacypolicy"
-  }
+  "twitter.com": { tos: "https://twitter.com/en/tos", privacy: "https://twitter.com/en/privacy" },
+  "x.com": { tos: "https://twitter.com/en/tos", privacy: "https://twitter.com/en/privacy" },
+  "facebook.com": { tos: "https://www.facebook.com/terms.php", privacy: "https://www.facebook.com/privacy/policy/" },
+  "instagram.com": { tos: "https://help.instagram.com/581066165581870", privacy: "https://privacycenter.instagram.com/policy" },
+  "linkedin.com": { tos: "https://www.linkedin.com/legal/user-agreement", privacy: "https://www.linkedin.com/legal/privacy-policy" },
+  "discord.com": { tos: "https://discord.com/terms", privacy: "https://discord.com/privacy" },
+  "tiktok.com": { tos: "https://www.tiktok.com/legal/page/us/terms-of-service/en", privacy: "https://www.tiktok.com/legal/page/us/privacy-policy/en" },
+  "spotify.com": { tos: "https://www.spotify.com/us/legal/end-user-agreement/", privacy: "https://www.spotify.com/us/legal/privacy-policy/" },
+  "netflix.com": { tos: "https://help.netflix.com/legal/termsofuse", privacy: "https://help.netflix.com/legal/privacy" },
+  "youtube.com": { tos: "https://www.youtube.com/t/terms", privacy: "https://policies.google.com/privacy" },
+  "twitch.tv": { tos: "https://www.twitch.tv/p/en/legal/terms-of-service/", privacy: "https://www.twitch.tv/p/en/legal/privacy-notice/" },
+  "amazon.com": { tos: "https://www.amazon.com/gp/help/customer/display.html?nodeId=508088", privacy: "https://www.amazon.com/gp/help/customer/display.html?nodeId=468496" },
+  "ebay.com": { tos: "https://www.ebay.com/help/policies/member-behaviour-policies/user-agreement", privacy: "https://www.ebay.com/help/policies/member-behaviour-policies/user-privacy-notice-privacy-policy" },
+  "etsy.com": { tos: "https://www.etsy.com/legal/terms-of-use/", privacy: "https://www.etsy.com/legal/privacy/" },
+  "paypal.com": { tos: "https://www.paypal.com/us/legalhub/useragreement-full", privacy: "https://www.paypal.com/us/legalhub/privacy-full" },
+  "airbnb.com": { tos: "https://www.airbnb.com/help/article/2908", privacy: "https://www.airbnb.com/help/article/2855" },
+  "uber.com": { tos: "https://www.uber.com/legal/en/document/?name=general-terms-of-use&country=united-states&lang=en", privacy: "https://www.uber.com/legal/en/document/?name=privacy-notice&country=united-states&lang=en" },
+  "google.com": { tos: "https://policies.google.com/terms", privacy: "https://policies.google.com/privacy" },
+  "apple.com": { tos: "https://www.apple.com/legal/internet-services/terms/site.html", privacy: "https://www.apple.com/legal/privacy/" },
+  "microsoft.com": { tos: "https://www.microsoft.com/en-us/servicesagreement/", privacy: "https://privacy.microsoft.com/en-us/privacystatement" },
+  "github.com": { tos: "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service", privacy: "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" },
+  "zoom.us": { tos: "https://explore.zoom.us/en/terms/", privacy: "https://explore.zoom.us/en/privacy/" },
+  "slack.com": { tos: "https://slack.com/terms-of-service", privacy: "https://slack.com/privacy-policy" },
+  "steampowered.com": { tos: "https://store.steampowered.com/subscriber_agreement/", privacy: "https://store.steampowered.com/privacy_agreement/" },
+  "epicgames.com": { tos: "https://www.epicgames.com/tos", privacy: "https://www.epicgames.com/privacypolicy" }
 };
 
 // ---------------------------------------------------------------------------
 // lookupSite(pageUrl)
-// Called by the Orchestrator before running the Fetcher.
-// Returns { tos, privacy } if found, or null if unknown.
-// Checks static database first, then learned sites in chrome.storage.local.
+// Priority: (1) local STATIC_SITES, (2) Supabase via proxy, (3) null → Fetcher guesses
 // ---------------------------------------------------------------------------
 async function lookupSite(pageUrl) {
   try {
     const hostname = new URL(pageUrl).hostname.replace(/^www\./, "");
 
-    // 1. Check static database first — no expiry
+    // 1. Check local static database first — instant, no network call
     if (STATIC_SITES[hostname]) {
       console.log(`[SiteDB] ✅ Static match: ${hostname}`);
       return STATIC_SITES[hostname];
@@ -162,7 +72,7 @@ async function lookupSite(pageUrl) {
       }
     }
 
-    // 2. Check learned sites in chrome.storage.local — subject to 15-day expiry
+    // 2. Check local learned cache
     const key = "sitedb_" + hostname;
     const result = await browser.storage.local.get(key);
     const learned = result[key];
@@ -170,12 +80,38 @@ async function lookupSite(pageUrl) {
     if (learned) {
       const ageInDays = (Date.now() - learned.savedAt) / (1000 * 60 * 60 * 24);
       if (ageInDays <= CACHE_EXPIRY_DAYS) {
-        console.log(`[SiteDB] ✅ Learned match: ${hostname} (${Math.floor(ageInDays)}d old)`);
+        console.log(`[SiteDB] ✅ Learned match (local): ${hostname} (${Math.floor(ageInDays)}d old)`);
         return { tos: learned.tos, privacy: learned.privacy };
       } else {
         console.log(`[SiteDB] ⏰ Learned entry expired for ${hostname} — will re-discover`);
         await browser.storage.local.remove(key);
       }
+    }
+
+    // 3. Check Supabase via proxy
+    try {
+      const response = await fetch(`${PROXY_URL}/site/${encodeURIComponent(hostname)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.tos && data.privacy) {
+          // Check expiry for non-static entries
+          if (!data.is_static) {
+            const ageInDays = (Date.now() - new Date(data.updated_at).getTime()) / (1000 * 60 * 60 * 24);
+            if (ageInDays > CACHE_EXPIRY_DAYS) {
+              console.log(`[SiteDB] ⏰ Supabase entry expired for ${hostname}`);
+              return null;
+            }
+          }
+          console.log(`[SiteDB] ✅ Supabase match: ${hostname}`);
+          // Save to local cache for next time
+          await browser.storage.local.set({
+            [key]: { tos: data.tos, privacy: data.privacy, savedAt: Date.now() }
+          });
+          return { tos: data.tos, privacy: data.privacy };
+        }
+      }
+    } catch (e) {
+      console.warn(`[SiteDB] Supabase lookup failed for ${hostname}:`, e.message);
     }
 
     console.log(`[SiteDB] ❓ Unknown site: ${hostname} — Fetcher will use candidate URLs`);
@@ -189,8 +125,8 @@ async function lookupSite(pageUrl) {
 
 // ---------------------------------------------------------------------------
 // learnSite(pageUrl, tosUrl, privacyUrl)
-// Called by the Fetcher after it successfully discovers URLs for an unknown site.
-// Saves to chrome.storage.local with a timestamp for 15-day expiry.
+// Saves to chrome.storage.local AND Supabase via proxy POST /site
+// Never overwrites static entries
 // ---------------------------------------------------------------------------
 async function learnSite(pageUrl, tosUrl, privacyUrl) {
   try {
@@ -199,15 +135,22 @@ async function learnSite(pageUrl, tosUrl, privacyUrl) {
     // Never overwrite static entries
     if (STATIC_SITES[hostname]) return;
 
+    // Save locally
     const key = "sitedb_" + hostname;
     await browser.storage.local.set({
-      [key]: {
-        tos: tosUrl,
-        privacy: privacyUrl,
-        savedAt: Date.now()
-      }
+      [key]: { tos: tosUrl, privacy: privacyUrl, savedAt: Date.now() }
     });
-    console.log(`[SiteDB] 📚 Learned and saved: ${hostname}`);
+    console.log(`[SiteDB] 📚 Learned and saved locally: ${hostname}`);
+
+    // Save to Supabase — fire and forget
+    fetch(`${PROXY_URL}/site`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: hostname, tos_url: tosUrl, privacy_url: privacyUrl })
+    }).then(r => r.json())
+      .then(d => { if (d.success) console.log(`[SiteDB] ☁️ Learned and saved to Supabase: ${hostname}`); })
+      .catch(e => console.warn(`[SiteDB] Supabase write failed for ${hostname}:`, e.message));
+
   } catch (e) {
     console.warn("[SiteDB] learnSite error:", e);
   }

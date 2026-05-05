@@ -198,6 +198,7 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
         ].filter(Boolean).join("\n\n");
         const sourceUrl = tosFromPage?.sourceUrl || privacyFromPage?.sourceUrl;
         console.log(`[Fetcher] Got documents from page HTML links`);
+        await learnSite(pageUrl, tosFromPage?.sourceUrl || null, privacyFromPage?.sourceUrl || null);
         return {
           text: combined,
           sourceUrl,
