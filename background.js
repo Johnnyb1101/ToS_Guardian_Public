@@ -341,7 +341,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-async function analyzeWithModel(text, source = "this page") {
+async function analyzeWithModel(text, source = "this page", escalate = false) {
   // Read provider and API key from storage (SETTINGS-001, SETTINGS-002, SETTINGS-003)
   const settings = await new Promise((resolve) => {
     browser.storage.local.get(
@@ -351,7 +351,24 @@ async function analyzeWithModel(text, source = "this page") {
   });
 
   const provider = settings.selectedProvider || 'anthropic';
-  console.log(`[Analyzer] Using provider: ${provider}`);
+
+  // Escalation model map per ESCALATION-006
+  // Anthropic: Haiku → Opus | OpenAI: GPT-4o-mini → GPT-4o | Ollama: disabled
+  const escalationModels = {
+    anthropic: 'claude-opus-4-6',
+    openai: 'gpt-4o'
+  };
+
+  const defaultModels = {
+    anthropic: 'claude-haiku-4-5-20251001',
+    openai: 'gpt-4o-mini'
+  };
+
+  const model = escalate && escalationModels[provider]
+    ? escalationModels[provider]
+    : (defaultModels[provider] || null);
+
+  console.log(`[Analyzer] Using provider: ${provider} | Model: ${model}${escalate ? ' (escalated)' : ''}`);
 
   // Split documents and allocate space — Privacy Policy gets priority
 const totalBudget = 80000;
@@ -417,7 +434,7 @@ ${trimmedText}`;
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: model,
         max_tokens: 1200,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }]
@@ -444,7 +461,7 @@ ${trimmedText}`;
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: model,
         max_tokens: 1200,
         messages: [
           { role: "system", content: systemPrompt },

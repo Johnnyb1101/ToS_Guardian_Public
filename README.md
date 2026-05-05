@@ -74,6 +74,7 @@ TOS Guardian was built with security as a first-class concern. The extension:
 - Sites that submit forms via Enter key on an input field (not a button) may bypass interception
 - Button interception on dynamically rendered Next.js pages may require a second click in some cases when browser DevTools is open
 - The self-learning site database writes to both local storage and the community Supabase database — community entries expire after 15 days
+- Reddit registration form submits via a cross-origin iframe — Enter key interception is not achievable at the extension layer. Button click interception works correctly on Reddit.
 
 ## Roadmap
 

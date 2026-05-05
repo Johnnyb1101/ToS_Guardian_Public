@@ -42,3 +42,24 @@ Public changelog. Technical architecture details are maintained separately.
 - Enter key via input field bypasses button-level interception
 - Fingerprint instability on dynamic pages — pgvector semantic similarity planned
 - Self-learning site database is single-user until backend is built
+
+## v1.1.0 — May 2026
+
+### New Features
+- Form-level submit interception — Enter key inside registration forms now triggers the extension
+- Shadow DOM form traversal — forms inside web components are now hooked correctly
+- Community caching via Supabase — analysis results shared across users instantly
+- Cross-user site database — known site URLs shared across users via Supabase backend
+- Semantic similarity via pgvector — ToS change detection uses vector embeddings instead of text hashing
+- Automatic model escalation — low-confidence analyses retry with a stronger model before reaching the user
+- Server-side document fetching — Next.js and CORS-restricted legal pages fetch via proxy backend
+- AI disclaimer on all results — permanent accuracy disclaimer on every analysis surface
+- Supabase write validation gate — incomplete or malformed analyses rejected before reaching community cache
+
+### Known Limitations
+- Reddit registration form lives inside a cross-origin iframe — Enter key interception not achievable at the extension layer. Button click interception works correctly.
+
+### Browser Support
+- ✅ Chrome (tested)
+- ✅ Microsoft Edge — confirmed working
+- 🔲 Firefox — architecture compatible, untested
