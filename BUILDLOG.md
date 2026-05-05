@@ -43,7 +43,7 @@ Public changelog. Technical architecture details are maintained separately.
 - Fingerprint instability on dynamic pages — pgvector semantic similarity planned
 - Self-learning site database is single-user until backend is built
 
-## v1.1.0 — May 2026
+## v1.2.0 — May 2026
 
 ### New Features
 - Form-level submit interception — Enter key inside registration forms now triggers the extension

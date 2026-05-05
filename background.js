@@ -51,10 +51,12 @@ function saveAnalysis(domain, summary, tosText, optOutLinks = []) {
     optOutLinks: optOutLinks
   };
 
-  browser.storage.local.get("tosCache", (result) => {
+  browser.storage.local.get(["tosCache", "tosAcknowledged"], (result) => {
     const cache = result.tosCache || {};
+    const ack = result.tosAcknowledged || {};
     cache[domain] = entry;
-    browser.storage.local.set({ tosCache: cache }, () => {
+    delete ack[domain]; // Clear acknowledgment — user needs to see updated ToS
+    browser.storage.local.set({ tosCache: cache, tosAcknowledged: ack }, () => {
       console.log(`[Memory] Saved analysis for ${domain}`);
       writeToSupabase(domain, summary, 'anthropic', optOutLinks, tosText);
     });
@@ -338,6 +340,52 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
 
     return true;
+  }
+
+  if (request.action === "checkCache") {
+  const domain = request.domain;
+
+  (async () => {
+    const knownSite = !!(await lookupSite(`https://${domain}/`));
+
+    // Check acknowledgment first — if user has already seen this, don't fire
+    const ackData = await browser.storage.local.get("tosAcknowledged");
+    const acknowledged = !!(ackData.tosAcknowledged && ackData.tosAcknowledged[domain]);
+
+    if (acknowledged) {
+      sendResponse({ hit: false, knownSite, acknowledged: true });
+      return;
+    }
+
+    loadAnalysis(domain, async (summary, optOutLinks) => {
+      if (summary) {
+        sendResponse({ hit: true, knownSite, acknowledged: false, cached: { summary, optOutLinks: optOutLinks || [] } });
+        return;
+      }
+      try {
+        const supabaseResult = await readFromSupabase(domain, null);
+        if (supabaseResult) {
+          sendResponse({ hit: true, knownSite, acknowledged: false, cached: { summary: supabaseResult.summary, optOutLinks: supabaseResult.optOutLinks || [] } });
+          return;
+        }
+      } catch(e) {}
+      sendResponse({ hit: false, knownSite, acknowledged: false });
+    });
+  })();
+
+  return true;
+}
+
+if (request.action === "acknowledge") {
+    const domain = request.domain;
+    browser.storage.local.get("tosAcknowledged", (result) => {
+      const ack = result.tosAcknowledged || {};
+      ack[domain] = Date.now();
+      browser.storage.local.set({ tosAcknowledged: ack }, () => {
+        console.log(`[Memory] Acknowledged for ${domain}`);
+      });
+    });
+    return false;
   }
 });
 

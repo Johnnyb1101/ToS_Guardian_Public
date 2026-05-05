@@ -2,42 +2,77 @@ const hookedButtons = new WeakSet();
 const hookedForms = new WeakSet();
 const browser = globalThis.browser || chrome;
 
-function isAgreeButton(el) {
-  const blockedDomains = [
-    'linkedin.com', 'facebook.com', 'twitter.com',
-    'x.com', 'instagram.com', 'youtube.com'
+function hasProximityConsent(el) {
+  const consentPhrases = [
+    "by clicking", "by continuing", "by signing up",
+    "by registering", "by creating", "by joining",
+    "you agree", "you accept", "you consent",
+    "terms of service", "terms and conditions",
+    "privacy policy", "our terms", "our policies"
   ];
-  if (blockedDomains.some(d => location.hostname.includes(d))) return false;
 
+  // Check parent, grandparent, and great-grandparent innerText
+  let node = el.parentElement;
+  for (let i = 0; i < 3; i++) {
+    if (!node) break;
+    const text = node.innerText?.toLowerCase() || "";
+    if (consentPhrases.some(phrase => text.includes(phrase))) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
+function isAgreeButton(el) {
   const text = el.innerText?.toLowerCase().trim() || "";
-  const pageText = document.body.innerText.toLowerCase();
+  const value = el.value?.toLowerCase().trim() || "";
+  const combined = text || value;
 
   const highConfidence = [
-  "i agree", "accept all", "i accept",
-  "agree & continue", "accept & continue",
-  "continue with sso",
-  "sign up free"
-];
-
-  const lowConfidence = ["sign up", "create account", "register"];
-
-  const agreementContext = [
-    "by clicking", "by continuing", "by signing up",
-    "you agree", "terms of service", "privacy policy",
-    "terms and conditions"
+    "i agree", "accept all", "i accept",
+    "agree & continue", "accept & continue",
+    "continue with sso", "sign up free"
   ];
 
-  if (highConfidence.some(k => text.includes(k))) return true;
+  const lowConfidence = [
+    "sign up", "create account", "register",
+    "continue", "sign in", "log in", "login",
+    "sign in with google", "sign in with facebook",
+    "sign in with apple", "continue with google",
+    "continue with facebook", "continue with apple",
+    "get started", "join now", "join free"
+  ];
 
-  if (text === "continue" || lowConfidence.some(k => text.includes(k))) {
+  const signinPatterns = [
+    "sign in", "log in", "login",
+    "sign in with google", "sign in with facebook",
+    "sign in with apple", "continue with google",
+    "continue with facebook", "continue with apple"
+  ];
+
+  if (highConfidence.some(k => combined.includes(k))) return true;
+
+  if (lowConfidence.some(k => combined.includes(k))) {
+    // Tier 3: proximity check
+    if (hasProximityConsent(el)) return true;
+
+    // Tier 4: known site + signin pattern
+    if (domainIsKnown && signinPatterns.some(k => combined.includes(k))) return true;
+
+    // Tier 5: full page scan fallback
+    const pageText = document.body.innerText.toLowerCase();
+    const agreementContext = [
+      "by clicking", "by continuing", "by signing up",
+      "you agree", "terms of service", "privacy policy",
+      "terms and conditions"
+    ];
     return agreementContext.some(phrase => pageText.includes(phrase));
   }
 
   return false;
 }
 
-function showGuardianOverlay(event) {
-  const clickedButton = event.currentTarget;
+function showGuardianOverlay(event, cachedResult = null) {
+  const clickedButton = event.currentTarget || event.target;
   event.preventDefault();
   event.stopImmediatePropagation();
   event.stopPropagation();
@@ -117,54 +152,102 @@ function showGuardianOverlay(event) {
   document.getElementById("tg-proceed").addEventListener("click", () => {
   observerPaused = true;
   overlay.remove();
-  clickedButton.removeEventListener("click", showGuardianOverlay, true);
-  hookedButtons.delete(clickedButton);
-  setTimeout(() => {
-    clickedButton.dispatchEvent(new MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      view: window
-    }));
-    setTimeout(() => { observerPaused = false; }, 500);
-  }, 100);
+  // Write acknowledgment — user has seen and accepted this domain's ToS
+  browser.runtime.sendMessage({ action: "acknowledge", domain: window.location.hostname });
+  if (clickedButton) {
+    clickedButton.removeEventListener("click", checkCacheAndShowOverlay, true);
+    setTimeout(() => {
+      clickedButton.dispatchEvent(new MouseEvent("click", {
+        bubbles: true, cancelable: true, view: window
+      }));
+      setTimeout(() => { observerPaused = false; }, 500);
+    }, 100);
+  } else {
+    observerPaused = false;
+  }
 });
 
   document.getElementById("tg-leave").addEventListener("click", () => {
     overlay.remove();
   });
 
-  const fullText = document.body.innerText;
-  browser.runtime.sendMessage(
-  { 
-    action: "analyzeTos", 
-    text: fullText, 
-    pageUrl: window.location.href,
-    pageHtml: document.documentElement.innerHTML 
-  },
-  (result) => {
+  // If we already have a cached result, render it immediately — no API call needed
+  if (cachedResult) {
     const summaryEl = document.getElementById("tg-summary");
     if (summaryEl) {
       summaryEl.innerHTML = formatSummary(
-        result?.summary || "Could not analyze this page.",
-        result?.optOutLinks || []
+        cachedResult.summary || "Could not load cached analysis.",
+        cachedResult.optOutLinks || []
       );
     }
+    return;
   }
-);
+
+  // No cache — run full analysis
+  const fullText = document.body.innerText;
+  browser.runtime.sendMessage(
+    {
+      action: "analyzeTos",
+      text: fullText,
+      pageUrl: window.location.href,
+      pageHtml: document.documentElement.innerHTML
+    },
+    (result) => {
+      const summaryEl = document.getElementById("tg-summary");
+      if (summaryEl) {
+        summaryEl.innerHTML = formatSummary(
+          result?.summary || "Could not analyze this page.",
+          result?.optOutLinks || []
+        );
+      }
+    }
+  );
+}
+
+function checkCacheAndShowOverlay(event) {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  event.stopPropagation();
+
+  const domain = window.location.hostname;
+
+  browser.runtime.sendMessage(
+    { action: "checkCache", domain },
+    (response) => {
+      if (response && response.acknowledged) {
+        // User has already seen and acknowledged this domain — let click through silently
+        const el = event.currentTarget || event.target;
+        if (el) {
+          el.removeEventListener("click", checkCacheAndShowOverlay, true);
+          setTimeout(() => {
+            el.dispatchEvent(new MouseEvent("click", {
+              bubbles: true, cancelable: true, view: window
+            }));
+          }, 50);
+        }
+        return;
+      }
+      if (response && response.hit) {
+        showGuardianOverlay(event, response.cached);
+      } else {
+        showGuardianOverlay(event, null);
+      }
+    }
+  );
 }
 
 function attachToButtons() {
   document.querySelectorAll("button, a, [role='button']").forEach(el => {
-  if (isAgreeButton(el) && !hookedButtons.has(el)) {
-  hookedButtons.add(el);
-  el.dataset.tgHooked = "true"; // DOM hint only — not authoritative
-      el.addEventListener("click", showGuardianOverlay, true);
+    if (isAgreeButton(el) && !hookedButtons.has(el)) {
+      hookedButtons.add(el);
+      el.dataset.tgHooked = "true";
+      el.addEventListener("click", checkCacheAndShowOverlay, true);
       el.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopImmediatePropagation();
           e.stopPropagation();
-          showGuardianOverlay(e);
+          checkCacheAndShowOverlay(e);
         }
       }, true);
     }
@@ -193,7 +276,7 @@ function attachToForms() {
 
       event.preventDefault();
       event.stopImmediatePropagation();
-      showGuardianOverlay(event);
+      checkCacheAndShowOverlay(event);
     }, true);
   });
   hookShadowForms(document.body);
@@ -201,11 +284,20 @@ function attachToForms() {
 
 let observerPaused = false;
 
+let domainIsKnown = false;
+
 function initTosGuardian() {
-  attachToButtons();
-  attachToForms();
-  setTimeout(() => { attachToButtons(); attachToForms(); }, 2000);
-  setTimeout(() => { attachToButtons(); attachToForms(); }, 4000);
+  const domain = window.location.hostname;
+  browser.runtime.sendMessage({ action: "checkCache", domain }, (response) => {
+    if (response && response.knownSite) {
+      domainIsKnown = true;
+    }
+    attachToButtons();
+    attachToForms();
+    setTimeout(() => { attachToButtons(); attachToForms(); }, 2000);
+    setTimeout(() => { attachToButtons(); attachToForms(); }, 4000);
+  });
+
   const observer = new MutationObserver(() => {
     if (!observerPaused) { attachToButtons(); attachToForms(); }
   });
