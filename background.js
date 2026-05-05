@@ -270,14 +270,16 @@ async function fetchNextJsDocument(url) {
 
 async function tryFetchCandidates(candidates) {
   for (const url of candidates) {
+    // Hidden tab first — renders JavaScript, gets real content
+    const tabResult = await fetchWithHiddenTab(url);
+    if (tabResult && tabResult.text && tabResult.text.length > 500) {
+      console.log(`[Fetcher] Found at: ${url}`);
+      return { text: tabResult.text, html: tabResult.html, sourceUrl: url };
+    }
+
+    // Proxy fallback — for CORS-restricted or Next.js sites
     const nextResult = await fetchNextJsDocument(url);
     if (nextResult) return { text: nextResult.text, html: nextResult.html, sourceUrl: url };
-
-    const result = await fetchWithHiddenTab(url);
-    if (result && result.text && result.text.length > 500) {
-      console.log(`[Fetcher] Found at: ${url}`);
-      return { text: result.text, html: result.html, sourceUrl: url };
-    }
   }
   return null;
 }

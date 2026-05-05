@@ -71,5 +71,11 @@ function formatSummary(raw, optOutLinks = []) {
   }
 
   html += evalBadge;
+
+  // AI disclaimer — required on every result per ESCALATION-005
+  html += `<div style="margin-top:12px; padding-top:8px; border-top:1px solid #333; font-size:11px; color:#888; text-align:center;">
+    AI analysis may not be 100% accurate. Always review documents yourself for important decisions.
+  </div>`;
+
   return html;
 }

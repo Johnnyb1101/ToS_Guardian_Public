@@ -21,9 +21,9 @@ const STATIC_SITES = {
 
   // Social / Community
   "reddit.com": {
-    tos: "https://www.redditinc.com/policies/user-agreement",
-    privacy: "https://www.reddit.com/policies/privacy-policy"
-  },
+  tos: "https://www.redditinc.com/policies/user-agreement",
+  privacy: "https://www.redditinc.com/policies/privacy-policy"
+},
   "twitter.com": {
     tos: "https://twitter.com/en/tos",
     privacy: "https://twitter.com/en/privacy"
