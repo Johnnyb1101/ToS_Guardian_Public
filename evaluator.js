@@ -16,7 +16,8 @@ function evaluateAnalysis(analysisText) {
       score: 0,
       label: 'Failed',
       warning: '⚠️ No analysis was returned. The legal document may not have loaded correctly.',
-      passed: false
+      passed: false,
+      escalate: true
     };
   }
 
@@ -56,24 +57,26 @@ function evaluateAnalysis(analysisText) {
 
   score = Math.max(0, Math.min(100, score));
 
+  // Thresholds per ESCALATION-001
+  // Strong = 95+, Adequate = 75-94, Failed = below 75
   let label;
-  if (score >= 80)      label = 'Strong';
-  else if (score >= 55) label = 'Adequate';
-  else if (score >= 25) label = 'Weak';
+  if (score >= 95)      label = 'Strong';
+  else if (score >= 75) label = 'Adequate';
   else                  label = 'Failed';
 
   let warning = null;
   if (label === 'Failed') {
     warning = '⚠️ Analysis failed — the legal document may not have loaded. Try reloading the page and clicking the button again.';
-  } else if (label === 'Weak') {
-    warning = '⚠️ Limited analysis — parts of this document may have been blocked or unavailable. Review the full document before agreeing.';
   } else if (label === 'Adequate') {
     warning = '⚠️ Partial analysis — some sections could not be fully assessed. Use this as a starting point, not a complete review.';
   }
 
+  // escalate flag — read by Orchestrator to trigger Opus retry (ESCALATION-002)
+  // Failed always escalates. Adequate escalates unless session cap is hit.
+  const escalate = label === 'Failed' || label === 'Adequate';
   const passed = label === 'Strong' || label === 'Adequate';
 
   console.log(`[Evaluator] Score: ${score} | Label: ${label} | Issues: ${issues.join(', ') || 'none'}`);
 
-  return { score, label, warning, passed };
+  return { score, label, warning, passed, escalate };
 }

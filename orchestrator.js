@@ -67,32 +67,74 @@ if (domain && fetched) {
   let result = null;
   result = await runWithRetry(() => analyzeWithModel(enrichedText, source), "[Analyzer]");
 
-  // --- STEP 5: EVALUATOR AGENT ---
-const rawEvaluation = evaluateAnalysis(result ? result.summary : null);
+  // --- STEP 5: EVALUATOR AGENT + ESCALATION ---
+  const rawEvaluation = evaluateAnalysis(result ? result.summary : null);
 
-// Schema validation — fail closed if Evaluator returns unexpected format (SECURITY-010)
-const validLabels = ['Strong', 'Adequate', 'Weak', 'Failed'];
-const evaluation = (
-  rawEvaluation &&
-  typeof rawEvaluation.score === 'number' &&
-  rawEvaluation.score >= 0 &&
-  rawEvaluation.score <= 100 &&
-  validLabels.includes(rawEvaluation.label)
-) ? rawEvaluation : {
-  score: 0,
-  label: 'Failed',
-  warning: '⚠️ Evaluator returned an unexpected result. Analysis could not be verified.',
-  passed: false
-};
+  // Schema validation — fail closed if Evaluator returns unexpected format (SECURITY-010)
+  const validLabels = ['Strong', 'Adequate', 'Failed'];
+  let evaluation = (
+    rawEvaluation &&
+    typeof rawEvaluation.score === 'number' &&
+    rawEvaluation.score >= 0 &&
+    rawEvaluation.score <= 100 &&
+    validLabels.includes(rawEvaluation.label)
+  ) ? rawEvaluation : {
+    score: 0,
+    label: 'Failed',
+    warning: '⚠️ Evaluator returned an unexpected result. Analysis could not be verified.',
+    passed: false,
+    escalate: true
+  };
 
-console.log(`[Orchestrator] Evaluator — Label: ${evaluation.label}, Score: ${evaluation.score}`);
+  console.log(`[Orchestrator] Evaluator — Label: ${evaluation.label}, Score: ${evaluation.score}`);
 
-if (result && evaluation.warning) {
-  result.summary = `<div class="tg-eval-warning">${evaluation.warning}</div>\n` + result.summary;
-}
-if (result) {
-  result.summary += `\n<div class="tg-eval-badge tg-eval-${evaluation.label.toLowerCase()}">Analysis confidence: ${evaluation.label} (${evaluation.score}/100)</div>`;
-}
+  // --- ESCALATION (ESCALATION-002, ESCALATION-003, ESCALATION-006) ---
+  if (evaluation.escalate) {
+    // Check session cap for Adequate results (Failed always escalates)
+    const capKey = 'opusEscalationCount';
+    const capData = await browser.storage.local.get(capKey);
+    const escalationCount = capData[capKey] || 0;
+    const CAP = 3;
+
+    const shouldEscalate = evaluation.label === 'Failed' || escalationCount < CAP;
+
+    if (shouldEscalate) {
+      console.log(`[Orchestrator] Escalating to Opus — Haiku score: ${evaluation.score}, count: ${escalationCount + 1}/${CAP}`);
+      const escalatedResult = await runWithRetry(
+        () => analyzeWithModel(enrichedText, source, true), // true = use escalation model
+        "[Analyzer-Opus]"
+      );
+
+      if (escalatedResult) {
+        const escalatedEvaluation = evaluateAnalysis(escalatedResult.summary);
+        console.log(`[Orchestrator] Opus score: ${escalatedEvaluation.score} | Label: ${escalatedEvaluation.label}`);
+
+        // Use Opus result if it's better
+        if (escalatedEvaluation.score > evaluation.score) {
+          result = escalatedResult;
+          evaluation = escalatedEvaluation;
+          console.log(`[Orchestrator] Opus result accepted`);
+        } else {
+          console.log(`[Orchestrator] Opus result not better — keeping Haiku result`);
+        }
+
+        // Increment session cap regardless of which result was kept
+        await browser.storage.local.set({ [capKey]: escalationCount + 1 });
+
+        // Log escalation to Supabase (ESCALATION-004)
+        writeToSupabase(domain, result.summary, 'anthropic-escalated', optOutLinks, textToAnalyze);
+      }
+    } else {
+      console.log(`[Orchestrator] Opus cap reached (${escalationCount}/${CAP}) — using Haiku result`);
+    }
+  }
+
+  if (result && evaluation.warning) {
+    result.summary = `<div class="tg-eval-warning">${evaluation.warning}</div>\n` + result.summary;
+  }
+  if (result) {
+    result.summary += `\n<div class="tg-eval-badge tg-eval-${evaluation.label.toLowerCase()}">Analysis confidence: ${evaluation.label} (${evaluation.score}/100)</div>`;
+  }
 
   if (!result) {
     console.error("[Orchestrator] Analyzer failed after retry — returning fallback");
