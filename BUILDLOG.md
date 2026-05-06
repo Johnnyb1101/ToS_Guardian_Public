@@ -65,3 +65,21 @@ Public changelog. Technical architecture details are maintained separately.
 ### Improvements
 - Plain English prompt rewrite — analysis results now written for everyday users, not lawyers
 - Fixed summary rendering — markdown headers (##) stripped before display so sections render correctly
+
+## v1.2.2 — May 2026
+
+### Performance
+- MutationObserver debounce — DOM-heavy pages no longer trigger redundant site lookups on every change
+
+### UI Polish
+- Footer buttons now lock to identical width across all sites and screen sizes
+
+### Site Database Updates
+- eBay — corrected URLs to fix help page error responses
+- Walmart — added to static site database
+- EA — added to static site database
+
+### Testing
+- Cross-category validation across 25+ sites (finance, social, shopping, healthcare, gaming, travel, productivity)
+- All tested sites returned Strong analyses with full relay completion
+- Documented edge cases: sites with opt-out links external to privacy policy documents, sites with JS-heavy help center pages

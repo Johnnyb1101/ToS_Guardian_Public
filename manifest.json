@@ -5,9 +5,9 @@
   "version": "1.2.1",
   "description": "Intercepts agree buttons and analyzes Terms of Service and Privacy Policies with AI — so you know what you're agreeing to before you agree.",
   "permissions": ["activeTab", "tabs", "storage", "scripting"],
-"host_permissions": [
-  "https://tos-guardian-proxy-production.up.railway.app/*"
-],
+  "host_permissions": [
+    "https://tos-guardian-proxy-production.up.railway.app/*"
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "tos-guardian@johnnyb1101",
@@ -17,8 +17,18 @@
   "background": {
     "service_worker": "background.js"
   },
+  "icons": {
+    "16": "favicon-16x16.png",
+    "48": "favicon-32x32.png",
+    "128": "android-chrome-192x192.png"
+  },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "favicon-16x16.png",
+      "48": "favicon-32x32.png",
+      "128": "android-chrome-192x192.png"
+    }
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"

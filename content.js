@@ -115,9 +115,9 @@ function showGuardianOverlay(event, cachedResult = null) {
       .tg-eval-adequate { background:#fff8ee; color:#b7770d; border:1px solid #f5dfa0; }
       .tg-eval-weak     { background:#fff0f0; color:#c0392b; border:1px solid #f5c6c6; }
       #tg-card-footer { display:flex; gap:10px; padding:14px 20px; border-top:1px solid #f0f0f0; align-items:center; }
-      #tg-proceed { flex:1; height:40px; padding:0 10px; background:#e0e0e0; color:#444; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; }
+      #tg-proceed { flex:1 1 0; min-width:0; height:40px; padding:0 10px; background:#e0e0e0; color:#444; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; }
       #tg-proceed:hover { background:#d4d4d4; }
-      #tg-leave { flex:1; height:40px; padding:0 10px; background:#1a1aff; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; }
+      #tg-leave { flex:1 1 0; min-width:0; height:40px; padding:0 10px; background:#1a1aff; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; }
       #tg-leave:hover { background:#0000dd; }
     </style>
 
@@ -298,10 +298,16 @@ function initTosGuardian() {
     setTimeout(() => { attachToButtons(); attachToForms(); }, 4000);
   });
 
-  const observer = new MutationObserver(() => {
-    if (!observerPaused) { attachToButtons(); attachToForms(); }
-  });
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+  let debounceTimer = null;
+const observer = new MutationObserver(() => {
+  if (observerPaused) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    attachToButtons();
+    attachToForms();
+  }, 300);
+});
+observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'class'] });
 }
 
 if (document.body) { initTosGuardian(); }
