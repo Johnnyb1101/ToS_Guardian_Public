@@ -35,8 +35,8 @@ Public changelog. Technical architecture details are maintained separately.
 
 ### Browser Support
 - ✅ Chrome (tested)
-- 🔲 Microsoft Edge — architecture compatible, untested
-- 🔲 Firefox — architecture compatible, untested
+- ✅ Microsoft Edge (tested)
+- 🔲 Firefox — service worker compatibility issue, deferred
 
 ### Known Gaps
 - Enter key via input field bypasses button-level interception
@@ -56,10 +56,12 @@ Public changelog. Technical architecture details are maintained separately.
 - AI disclaimer on all results — permanent accuracy disclaimer on every analysis surface
 - Supabase write validation gate — incomplete or malformed analyses rejected before reaching community cache
 
-### Known Limitations
-- Reddit registration form lives inside a cross-origin iframe — Enter key interception not achievable at the extension layer. Button click interception works correctly.
+## v1.2.1 — May 2026
 
-### Browser Support
-- ✅ Chrome (tested)
-- ✅ Microsoft Edge — confirmed working
-- 🔲 Firefox — architecture compatible, untested
+### Bug Fixes
+- Removed anchor tag hooking from Shadow DOM traversal — navigation links no longer incorrectly intercepted as consent buttons
+- Fixed overlay reappearing after Proceed on sites with anchor-based buttons (Epic Games)
+
+### Improvements
+- Plain English prompt rewrite — analysis results now written for everyday users, not lawyers
+- Fixed summary rendering — markdown headers (##) stripped before display so sections render correctly
