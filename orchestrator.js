@@ -57,11 +57,17 @@ if (domain && fetched) {
   console.log("[Orchestrator] No semantic match — running full analysis");
 }
 
-  // --- STEP 3: LINK FOLLOWER AGENT ---
-  // Follows opt-out and privacy links buried in documents
-  const privacyHtml = fetched ? fetched.privacyHtml : null;
-  const privacyUrl = fetched ? fetched.privacyUrl : null;
-  const { text: enrichedText, optOutLinks } = await linkFollowerStub(textToAnalyze, source, privacyHtml, privacyUrl);
+// --- STEP 2.8: INJECTION SCANNER ---
+const scanResult = scanForInjection(textToAnalyze);
+const safeText = scanResult.strippedText;
+if (!scanResult.clean) {
+  console.warn('[Orchestrator] Injection attempt detected — pattern stripped before analysis:', scanResult.pattern);
+}
+
+// --- STEP 3: LINK FOLLOWER AGENT ---
+const privacyHtml = fetched ? fetched.privacyHtml : null;
+const privacyUrl = fetched ? fetched.privacyUrl : null;
+const { text: enrichedText, optOutLinks } = await linkFollowerStub(safeText, source, privacyHtml, privacyUrl);
 
   // --- STEP 4: ANALYZER AGENT ---
   let result = null;

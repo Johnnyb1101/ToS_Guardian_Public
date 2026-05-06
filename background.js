@@ -1,4 +1,3 @@
-importScripts("security.js");
 importScripts("evaluator.js");
 importScripts("siteDatabase.js");
 importScripts("tosUtils.js");
@@ -110,7 +109,6 @@ function loadAnalysis(domain, callback) {
       return;
     }
 
-    // Integrity check — verify summary hash matches stored content (SECURITY-008)
     if (entry.summaryHash && hashString(entry.summary) !== entry.summaryHash) {
       console.warn(`[Memory] Integrity check failed for ${domain} — cache corrupted, forcing re-analysis`);
       browser.storage.local.get("tosCache", (r) => {
@@ -142,7 +140,6 @@ async function fetcherAgent(pageUrl, pageHtml = "", knownUrls = null) {
       return null;
     }
 
-    // Site Database fast-path — skip all guessing if URLs are already known
     if (knownUrls) {
       console.log("[Fetcher] Using site database URLs — skipping candidate guessing");
       const [tosResult, privacyResult] = await Promise.all([
@@ -483,7 +480,7 @@ ${trimmedText}`;
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: 1200,
+        max_tokens: escalate ? 2400 : 1200,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }]
       })
@@ -510,7 +507,7 @@ ${trimmedText}`;
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: 1200,
+        max_tokens: escalate ? 2400 : 1200,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
@@ -535,7 +532,7 @@ ${trimmedText}`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "llama3",
-        max_tokens: 1200,
+        max_tokens: escalate ? 2400 : 1200,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
