@@ -54,7 +54,7 @@ TOS Guardian supports three AI providers. You supply your own API key.
 
 - ✅ Chrome
 - ✅ Microsoft Edge — confirmed working
-- 🔲 Firefox — architecture is compatible but untested
+- 🔲 - Firefox is not currently supported due to a service worker compatibility issue with Manifest V3
 
 ## Security
 
