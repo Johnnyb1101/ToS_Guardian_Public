@@ -20,7 +20,7 @@ function walkShadowDOM(root, callback) {
 function hookShadowButtons(root) {
   walkShadowDOM(root, (el) => {
     const tag = el.tagName ? el.tagName.toLowerCase() : '';
-    const isButtonLike = tag === 'button' || tag === 'a' ||
+    const isButtonLike = tag === 'button' ||
       (tag === 'input' && (el.type === 'submit' || el.type === 'button')) ||
       el.getAttribute('role') === 'button';
 

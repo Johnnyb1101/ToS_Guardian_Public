@@ -81,8 +81,9 @@ function formatSummary(raw, optOutLinks = []) {
   };
 
   for (const line of lines) {
-    if (categoryMarkers.some(m => line.startsWith(m))) { flush(); currentTitle = line; }
-    else { currentBody.push(line); }
+    const cleanLine = line.replace(/^#+\s*/, '');
+    if (categoryMarkers.some(m => cleanLine.startsWith(m))) { flush(); currentTitle = cleanLine; }
+    else if (cleanLine && cleanLine !== '---') { currentBody.push(cleanLine); }
   }
   flush();
 
